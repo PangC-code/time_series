@@ -1,0 +1,78 @@
+model:
+  # target: Models.autoregressive_diffusion.armd.ARMD
+  target : Models.autoregressive_diffusion.ARMD_FlowMatching.ARMD_FlowMatching
+  params:
+    seq_length: 192
+    feature_size: 7
+    # timesteps: 96
+    # sampling_timesteps: 1
+    # loss_type: 'l1'
+    # beta_schedule: 'cosine'
+    # w_grad: True
+    # total_timesteps: 1000
+    # 基本向量场
+    # total_timesteps: 96
+    # hidden_dim: 256      # 控制 MLP 的宽度
+    time_emb_dim: 32       # 控制时间编码的维度
+    # tcn向量场
+    d_model: 128      # Transformer的内部维度
+    n_head: 4         # 多头注意力的头数
+    n_layers: 2       # Transformer Encoder的层数
+    #
+    sigma_min: 1e-3  # <--- 在这里添加新的超参数
+
+solver:
+  base_lr: 3.0e-3
+  max_epochs: 30000
+  results_folder: ./Checkpoints_etth
+  gradient_accumulate_every: 2
+  save_cycle: 1800  # max_epochs // 10
+  ema:
+    decay: 0.995
+    update_interval: 10
+  
+  scheduler:
+    target: engine.lr_sch.ReduceLROnPlateauWithWarmup
+    params:
+      factor: 0.5
+      patience: 4000
+      min_lr: 1.0e-5
+      threshold: 1.0e-1
+      threshold_mode: rel
+      warmup_lr: 8.0e-4
+      warmup: 500 
+      verbose: False
+
+dataloader:
+  train_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: etth
+      proportion: 0.8  # Set to rate < 1 if training conditional generation
+      data_root: ./Data/datasets/ETTh1.csv
+      window: 384  # seq_length
+      save2npy: True
+      neg_one_to_one: True
+      seed: 2024
+      period: train
+
+  test_dataset:
+    target: Utils.Data_utils.real_datasets.CustomDataset
+    params:
+      name: etth
+      proportion: 0.2  # rate
+      data_root: ./Data/datasets/ETTh1.csv
+      window: 384  # seq_length
+      save2npy: True
+      neg_one_to_one: True
+      seed: 2024
+      period: test
+      style: separate
+      distribution: geometric
+    coefficient: 1.0e-2
+    step_size: 5.0e-2
+    sampling_steps: 200
+
+  batch_size: 128
+  sample_size: 256
+  shuffle: True
